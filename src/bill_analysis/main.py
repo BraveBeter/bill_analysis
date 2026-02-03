@@ -4,7 +4,7 @@ import io
 import argparse
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import pandas as pd
 
@@ -22,7 +22,14 @@ from bill_analysis.reports import ReportGenerator
 class BillAnalyzer:
     """账单分析器"""
 
-    def __init__(self, input_dir: str, output_dir: str, year: int = None):
+    def __init__(
+        self,
+        input_dir: str,
+        output_dir: str,
+        year: int = None,
+        days: int = None,
+        all_data: bool = False,
+    ):
         """
         初始化分析器
 
@@ -30,10 +37,14 @@ class BillAnalyzer:
             input_dir: 输入目录
             output_dir: 输出目录
             year: 分析年份（None 表示全部）
+            days: 分析最近 N 天的数据
+            all_data: 是否分析所有数据
         """
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.year = year or datetime.now().year
+        self.days = days
+        self.all_data = all_data
 
         # 创建输出目录
         os.makedirs(output_dir, exist_ok=True)
@@ -55,8 +66,20 @@ class BillAnalyzer:
         Returns:
             分析结果
         """
+        # 确定分析时间范围
+        date_range = None
+        analysis_desc = f"年份: {self.year}"
+
+        if self.all_data:
+            analysis_desc = "全部数据"
+        elif self.days is not None:
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=self.days)
+            date_range = (start_date, end_date)
+            analysis_desc = f"最近 {self.days} 天 ({start_date.strftime('%Y-%m-%d')} ~ {end_date.strftime('%Y-%m-%d')})"
+
         print("=" * 60)
-        print(f"开始分析账单数据 (年份: {self.year})")
+        print(f"开始分析账单数据 ({analysis_desc})")
         print("=" * 60)
 
         # 1. 读取账单数据
@@ -90,7 +113,9 @@ class BillAnalyzer:
 
         # 5. 统计分析
         print("\n[5/7] 正在进行统计分析...")
-        analysis_result = self.analyzer.analyze(classified, self.year)
+        # 确定分析参数
+        year_param = None if (self.all_data or self.days is not None) else self.year
+        analysis_result = self.analyzer.analyze(classified, year=year_param, date_range=date_range)
         print(f"   ✓ 总支出: ¥{analysis_result['summary']['total_amount']:.2f}")
         print(f"   ✓ 交易笔数: {analysis_result['summary']['total_transactions']}")
 
@@ -203,7 +228,21 @@ class BillAnalyzer:
 
 def main():
     """主函数"""
-    parser = argparse.ArgumentParser(description="年度账单分析工具")
+    parser = argparse.ArgumentParser(
+        description="年度账单分析工具",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+时间范围选项（优先级从高到低）:
+  --all          分析所有数据
+  --days N       分析最近 N 天的数据
+  --year YEAR    分析指定年份的数据（默认: 当年）
+
+示例:
+  %(prog)s --year 2024              # 分析 2024 年数据
+  %(prog)s --days 365               # 分析最近 365 天的数据
+  %(prog)s --all                    # 分析所有数据
+        """,
+    )
     parser.add_argument(
         "--input-dir",
         "-i",
@@ -216,12 +255,26 @@ def main():
         default="data/output",
         help="输出目录（默认: data/output）",
     )
-    parser.add_argument(
+    time_group = parser.add_mutually_exclusive_group()
+    time_group.add_argument(
         "--year",
         "-y",
         type=int,
         default=None,
         help="分析年份（默认: 当年）",
+    )
+    time_group.add_argument(
+        "--days",
+        "-d",
+        type=int,
+        default=None,
+        help="分析最近 N 天的数据（例如: 365 表示最近一年）",
+    )
+    time_group.add_argument(
+        "--all",
+        "-a",
+        action="store_true",
+        help="分析所有数据",
     )
 
     args = parser.parse_args()
@@ -231,6 +284,8 @@ def main():
         input_dir=args.input_dir,
         output_dir=args.output_dir,
         year=args.year,
+        days=args.days,
+        all_data=args.all,
     )
 
     # 运行分析

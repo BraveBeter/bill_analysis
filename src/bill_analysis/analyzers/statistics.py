@@ -1,7 +1,7 @@
 """统计分析模块"""
 
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 
@@ -12,13 +12,19 @@ class StatisticsAnalyzer:
         """初始化统计分析器"""
         pass
 
-    def analyze(self, df: pd.DataFrame, year: Optional[int] = None) -> Dict:
+    def analyze(
+        self,
+        df: pd.DataFrame,
+        year: Optional[int] = None,
+        date_range: Optional[Tuple[datetime, datetime]] = None,
+    ) -> Dict:
         """
         执行全面分析
 
         Args:
             df: 交易数据
-            year: 分析年份（如果为 None，分析所有数据）
+            year: 分析年份（如果为 None 且未指定 date_range，分析所有数据）
+            date_range: 日期范围 (start_date, end_date)，优先级高于 year
 
         Returns:
             分析结果字典
@@ -26,9 +32,8 @@ class StatisticsAnalyzer:
         if df.empty:
             return self._empty_result()
 
-        # 过滤年份
-        if year is not None:
-            df = df[df["时间"].dt.year == year].copy()
+        # 过滤数据
+        df = self._filter_data(df, year, date_range)
 
         result = {
             "year": year if year else "全部",
@@ -40,6 +45,35 @@ class StatisticsAnalyzer:
         }
 
         return result
+
+    def _filter_data(
+        self,
+        df: pd.DataFrame,
+        year: Optional[int] = None,
+        date_range: Optional[Tuple[datetime, datetime]] = None,
+    ) -> pd.DataFrame:
+        """
+        根据年份或日期范围过滤数据
+
+        Args:
+            df: 原始交易数据
+            year: 年份
+            date_range: 日期范围 (start_date, end_date)
+
+        Returns:
+            过滤后的数据
+        """
+        # 优先使用日期范围过滤
+        if date_range is not None:
+            start_date, end_date = date_range
+            return df[(df["时间"] >= start_date) & (df["时间"] <= end_date)].copy()
+
+        # 按年份过滤
+        if year is not None:
+            return df[df["时间"].dt.year == year].copy()
+
+        # 返回所有数据
+        return df.copy()
 
     def _empty_result(self) -> Dict:
         """返回空结果"""
