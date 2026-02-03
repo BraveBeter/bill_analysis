@@ -39,7 +39,12 @@ class WechatParser(BaseParser):
         df["时间"] = pd.to_datetime(df["时间"], errors="coerce")
         df["平台"] = self.platform_name
 
-        # 处理金额：确保支出为负数
+        # 处理金额：移除货币符号后转换为数值
+        # 微信账单金额可能包含 ¥, ¥, , 等符号
+        df["金额"] = df["金额"].astype(str)
+        df["金额"] = df["金额"].str.replace("¥", "", regex=False)
+        df["金额"] = df["金额"].str.replace("￥", "", regex=False)
+        df["金额"] = df["金额"].str.replace(",", "", regex=False)
         df["金额"] = pd.to_numeric(df["金额"], errors="coerce").fillna(0)
 
         # 微信中支出已经是负数或需要转换
