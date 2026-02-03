@@ -2,13 +2,72 @@
 
 import matplotlib.pyplot as plt
 import matplotlib
+import matplotlib.font_manager as fm
 import pandas as pd
 from typing import Dict, Optional
 import os
+import platform
 
-# 设置中文字体支持
-matplotlib.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "KaiTi"]
-matplotlib.rcParams["axes.unicode_minus"] = False  # 解决负号显示问题
+
+def _setup_chinese_font():
+    """配置中文字体"""
+    # 获取系统可用字体
+    system_fonts = [f.name for f in fm.fontManager.ttflist]
+
+    # 定义常见中文字体列表（按优先级）
+    chinese_fonts = []
+
+    if platform.system() == "Windows":
+        chinese_fonts = [
+            "Microsoft YaHei",
+            "SimHei",
+            "SimSun",
+            "KaiTi",
+            "FangSong",
+            "STXihei",
+            "STSong",
+            "STKaiti",
+            "STFangsong",
+        ]
+    elif platform.system() == "Darwin":  # macOS
+        chinese_fonts = [
+            "PingFang SC",
+            "Heiti SC",
+            "STHeiti",
+            "Hiragino Sans GB",
+            "Microsoft YaHei",
+        ]
+    else:  # Linux
+        chinese_fonts = [
+            "WenQuanYi Micro Hei",
+            "WenQuanYi Zen Hei",
+            "Noto Sans CJK SC",
+            "Source Han Sans SC",
+            "Droid Sans Fallback",
+        ]
+
+    # 找到第一个可用的中文字体
+    available_font = None
+    for font in chinese_fonts:
+        if font in system_fonts:
+            available_font = font
+            break
+
+    # 如果没有找到中文字体，尝试直接设置
+    if available_font:
+        matplotlib.rcParams["font.sans-serif"] = [available_font] + matplotlib.rcParams["font.sans-serif"]
+        print(f"✓ 使用中文字体: {available_font}")
+    else:
+        print("⚠ 警告: 未找到合适的中文字体，图表可能无法正确显示中文")
+        print(f"  系统可用字体: {len(system_fonts)} 个")
+        # 仍然尝试设置常见字体
+        matplotlib.rcParams["font.sans-serif"] = chinese_fonts + matplotlib.rcParams["font.sans-serif"]
+
+    matplotlib.rcParams["axes.unicode_minus"] = False  # 解决负号显示问题
+
+
+# 初始化时设置中文字体
+_setup_chinese_font()
 
 
 class Visualizer:
@@ -24,8 +83,15 @@ class Visualizer:
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
 
-        # 设置样式
-        plt.style.use("seaborn-v0_8-darkgrid")
+        # 设置样式（在样式设置后重新配置字体）
+        try:
+            plt.style.use("seaborn-v0_8-darkgrid")
+        except OSError:
+            # 如果 seaborn 样式不可用，使用默认样式
+            plt.style.use("seaborn-v0_8-dark")
+
+        # 重新确保中文字体设置（样式可能会覆盖）
+        _setup_chinese_font()
 
     def plot_category_pie(self, category_data: Dict, filename: str = "category_pie.png") -> str:
         """
