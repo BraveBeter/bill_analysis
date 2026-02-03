@@ -159,3 +159,7 @@ output/
 *.jpeg
 !docs/**/*.png
 !docs/**/*.jpg
+
+
+# others
+project.md
