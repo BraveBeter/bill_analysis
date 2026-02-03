@@ -39,7 +39,15 @@ class CCBParser(BaseParser):
         df = self._map_columns(df)
 
         # 标准化数据 - 确保金额列为数值类型
-        df["时间"] = pd.to_datetime(df["时间"], errors="coerce")
+        # 处理建设银行特殊的时间格式（YYYYMMDD 整数）
+        if "时间" in df.columns:
+            # 如果时间是整数格式（YYYYMMDD），需要先转换为字符串
+            if pd.api.types.is_integer_dtype(df["时间"]) or df["时间"].dtype == "int64":
+                df["时间"] = df["时间"].astype(str)
+                df["时间"] = pd.to_datetime(df["时间"], format="%Y%m%d", errors="coerce")
+            else:
+                df["时间"] = pd.to_datetime(df["时间"], errors="coerce")
+
         df["金额"] = pd.to_numeric(df["金额"], errors="coerce").fillna(0)
         df["平台"] = self.platform_name
         df["收/支"] = df["金额"].apply(lambda x: "支出" if x < 0 else "收入" if x > 0 else "其他")
@@ -65,11 +73,24 @@ class CCBParser(BaseParser):
         # 创建列名映射
         column_mapping = {}
 
-        # 时间列
+        # 时间列 - 优先匹配记账日期
         for col in df.columns:
-            if any(keyword in str(col) for keyword in ["时间", "日期", "记账"]):
+            if any(keyword in str(col) for keyword in ["记账日期", "记账", "交易日期", "日期", "时间"]):
                 column_mapping[col] = "时间"
                 break
+
+        # 如果没找到，尝试查找包含日期格式的列
+        if "时间" not in column_mapping:
+            for col in df.columns:
+                if df[col].dtype in ["int64", "object"]:
+                    # 检查是否是YYYYMMDD格式的数据
+                    sample_val = df[col].dropna().iloc[0] if not df[col].dropna().empty else None
+                    if sample_val and (
+                        (isinstance(sample_val, (int, float)) and 20000000 < sample_val < 21000000) or
+                        (isinstance(sample_val, str) and len(sample_val) == 8 and sample_val.isdigit())
+                    ):
+                        column_mapping[col] = "时间"
+                        break
 
         # 金额列
         for col in df.columns:

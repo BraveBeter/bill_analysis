@@ -412,7 +412,28 @@ class ReportGenerator:
             输出文件完整路径
         """
         output_path = os.path.join(self.output_dir, filename)
-        df.to_csv(output_path, index=False, encoding="utf-8-sig")
+
+        # 将空值替换为空字符串，确保所有字段都有值
+        df_export = df.copy()
+        for col in df_export.columns:
+            df_export[col] = df_export[col].fillna("")
+
+        # 清理特殊字符，确保 Excel 能正确解析
+        for col in df_export.columns:
+            # 将换行符、制表符、回车符替换为空格
+            df_export[col] = df_export[col].astype(str).str.replace("\n", " ", regex=False)
+            df_export[col] = df_export[col].astype(str).str.replace("\r", " ", regex=False)
+            df_export[col] = df_export[col].astype(str).str.replace("\t", " ", regex=False)
+
+        # 导出 CSV，确保引号处理正确
+        df_export.to_csv(
+            output_path,
+            index=False,
+            encoding="utf-8-sig",
+            quoting=1,  # QUOTE_ALL - 所有字段都加引号
+            quotechar='"',
+            doublequote=True,
+        )
         return output_path
 
     def generate_all_reports(
