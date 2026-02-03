@@ -40,6 +40,16 @@ class CCBParser(BaseParser):
         # 查找关键列（建行列名可能有所不同）
         df = self._map_columns(df)
 
+        # 过滤掉支付宝和微信支付记录（避免与支付宝/微信账单重复统计）
+        # 检查"商品描述"字段（原始的"交易地点/附言"）中是否包含"支付宝"或"微信"
+        if "商品描述" in df.columns:
+            before_count = len(df)
+            # 保留不包含"支付宝"或"微信"的记录
+            df = df[~df["商品描述"].str.contains("支付宝|微信", na=False)].copy()
+            after_count = len(df)
+            if before_count > after_count:
+                print(f"  建设银行账单：过滤掉 {before_count - after_count} 条支付宝/微信支付记录")
+
         # 标准化数据 - 确保金额列为数值类型
         # 处理建设银行特殊的时间格式（YYYYMMDD 整数）
         if "时间" in df.columns:
