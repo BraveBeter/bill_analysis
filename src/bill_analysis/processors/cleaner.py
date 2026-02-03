@@ -7,7 +7,7 @@ from typing import List
 class DataCleaner:
     """数据清洗器"""
 
-    # 中转交易关键词
+    # 中转交易关键词（精确匹配，避免误删）
     TRANSFER_KEYWORDS = [
         "充值",
         "提现",
@@ -16,12 +16,15 @@ class DataCleaner:
         "余额",
         "零钱",
         "财付通",
-        "支付宝",
-        "微信",
         "还款",
         "信用卡",
         "花呗",
         "借呗",
+        "微信转账",  # 精确匹配"微信转账"而非单独的"微信"
+        "支付宝转账",  # 精确匹配
+        "转账到",  # 转账到某处
+        "转账备注",  # 带有转账备注的
+        "红包",  # 红包通常不计入消费
     ]
 
     def __init__(self):
@@ -89,10 +92,12 @@ class DataCleaner:
 
             for field in fields_to_check:
                 if field in row and pd.notna(row[field]):
-                    value = str(row[field]).lower()
+                    value = str(row[field])
+
                     # 检查是否包含中转关键词
                     for keyword in self.TRANSFER_KEYWORDS:
-                        if keyword.lower() in value:
+                        # 精确匹配或词组匹配
+                        if keyword in value:
                             return True
 
             return False
